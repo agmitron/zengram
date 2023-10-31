@@ -30,6 +30,7 @@ import {
   SERVICE_NOTIFICATIONS_USER_ID,
   TOPICS_SLICE,
 } from '../../../config';
+import { configExample } from '../../../global/overrides/chats';
 import { buildCollectionByKey } from '../../../util/iteratees';
 import {
   buildApiChatBotCommands,
@@ -170,6 +171,11 @@ export async function fetchChats({
     }
 
     chat.isListed = true;
+
+    // TODO: find a more proper place for overriding the chats
+    if (!configExample.chats.allowed.has(chat.id)) {
+      return;
+    }
 
     chats.push(chat);
 
