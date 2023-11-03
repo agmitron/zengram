@@ -47,6 +47,7 @@ import {
 import {
   addActionHandler, getGlobal, setGlobal,
 } from '../../index';
+import { configExample, overrideFolders } from '../../overrides/chats';
 import {
   addChatMembers,
   addChats,
@@ -712,6 +713,9 @@ addActionHandler('loadChatFolders', async (global): Promise<void> => {
         ...chatFolders,
       },
     };
+
+    global = overrideFolders(global, configExample);
+
     setGlobal(global);
   }
 });
