@@ -795,67 +795,73 @@ addActionHandler('editChatFolder', (global, actions, payload): ActionReturnType 
   }
 });
 
-addActionHandler('addChatFolder', async (global, actions, payload): Promise<void> => {
-  const { folder, tabId = getCurrentTabId() } = payload!;
-  const { orderedIds, byId } = global.chatFolders;
+// addActionHandler('addChatFolder', async (global, actions, payload): Promise<void> => {
+//   // TODO: api to mutate the config on the server-side
 
-  const limit = selectCurrentLimit(global, 'dialogFilters');
-  if (Object.keys(byId).length >= limit) {
-    actions.openLimitReachedModal({
-      limit: 'dialogFilters',
-      tabId,
-    });
-    return;
-  }
+// })
 
-  const maxId = Math.max(...(orderedIds || []), ARCHIVED_FOLDER_ID);
+// TODO
+// addActionHandler('addChatFolder', async (global, actions, payload): Promise<void> => {
+//   const { folder, tabId = getCurrentTabId() } = payload!;
+//   const { orderedIds, byId } = global.chatFolders;
+//   // TODO: override chat folders functionality
+//   const limit = selectCurrentLimit(global, 'dialogFilters');
+//   if (Object.keys(byId).length >= limit) {
+//     actions.openLimitReachedModal({
+//       limit: 'dialogFilters',
+//       tabId,
+//     });
+//     return;
+//   }
 
-  // Clear fields from recommended folders
-  const { id: recommendedId, description, ...newFolder } = folder;
+//   const maxId = Math.max(...(orderedIds || []), ARCHIVED_FOLDER_ID);
 
-  const newId = maxId + 1;
-  const folderUpdate = {
-    id: newId,
-    ...newFolder,
-  };
-  await callApi('editChatFolder', {
-    id: newId,
-    folderUpdate,
-  });
+//   // Clear fields from recommended folders
+//   const { id: recommendedId, description, ...newFolder } = folder;
 
-  // Update called from the above `callApi` is throttled, but we need to apply changes immediately
-  actions.apiUpdate({
-    '@type': 'updateChatFolder',
-    id: newId,
-    folder: folderUpdate,
-  });
+//   const newId = maxId + 1;
+//   const folderUpdate = {
+//     id: newId,
+//     ...newFolder,
+//   };
+//   await callApi('editChatFolder', {
+//     id: newId,
+//     folderUpdate,
+//   });
 
-  actions.requestNextSettingsScreen({
-    foldersAction: {
-      type: 'setFolderId',
-      payload: maxId + 1,
-    },
-    tabId,
-  });
+//   // Update called from the above `callApi` is throttled, but we need to apply changes immediately
+//   actions.apiUpdate({
+//     '@type': 'updateChatFolder',
+//     id: newId,
+//     folder: folderUpdate,
+//   });
 
-  if (!description) {
-    return;
-  }
+//   actions.requestNextSettingsScreen({
+//     foldersAction: {
+//       type: 'setFolderId',
+//       payload: maxId + 1,
+//     },
+//     tabId,
+//   });
 
-  global = getGlobal();
-  const { recommended } = global.chatFolders;
+//   if (!description) {
+//     return;
+//   }
 
-  if (recommended) {
-    global = {
-      ...global,
-      chatFolders: {
-        ...global.chatFolders,
-        recommended: recommended.filter(({ id }) => id !== recommendedId),
-      },
-    };
-    setGlobal(global);
-  }
-});
+//   global = getGlobal();
+//   const { recommended } = global.chatFolders;
+
+//   if (recommended) {
+//     global = {
+//       ...global,
+//       chatFolders: {
+//         ...global.chatFolders,
+//         recommended: recommended.filter(({ id }) => id !== recommendedId),
+//       },
+//     };
+//     setGlobal(global);
+//   }
+// });
 
 addActionHandler('sortChatFolders', async (global, actions, payload): Promise<void> => {
   const { folderIds } = payload!;

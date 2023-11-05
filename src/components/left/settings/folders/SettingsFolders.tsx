@@ -92,6 +92,7 @@ const SettingsFolders: FC<OwnProps> = ({
       return false;
     }
 
+    // TODO
     if (!isCreating) {
       editChatFolder({ id: newState.folderId!, folderUpdate: newState.folder });
     } else {

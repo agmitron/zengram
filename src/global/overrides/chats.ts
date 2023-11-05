@@ -1,6 +1,6 @@
 import type { GlobalState } from '../types';
 
-import configExample from '../../../overrides.json';
+import configExample from '../../../zengram.config.json';
 
 export { configExample };
 

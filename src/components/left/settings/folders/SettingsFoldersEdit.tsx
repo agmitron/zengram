@@ -161,7 +161,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
 
   const handleSubmit = useCallback(() => {
     dispatch({ type: 'setIsLoading', payload: true });
-
+    // console.log('Save folder') TODO
     onSaveFolder(() => {
       setTimeout(() => {
         onReset();

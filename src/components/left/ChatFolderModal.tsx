@@ -13,6 +13,7 @@ import useLang from '../../hooks/useLang';
 import Button from '../ui/Button';
 import CheckboxGroup from '../ui/CheckboxGroup';
 import Modal from '../ui/Modal';
+// import buildClassName from '../../util/buildClassName';
 
 export type OwnProps = {
   isOpen: boolean;
@@ -89,6 +90,11 @@ const ChatFolderModal: FC<OwnProps & StateProps> = ({
         onChange={setSelectedFolderIds}
         round
       />
+      {/* TODO <Button color="primary" className="confirm-dialog-button" isText onClick={handleSubmit}>
+        <i className={buildClassName('icon', 'icon-add')} />
+        &nbsp;
+        Create folder
+      </Button> */}
       <div className="dialog-buttons">
         <Button color="primary" className="confirm-dialog-button" isText onClick={handleSubmit}>
           {lang('FilterAddTo')}
