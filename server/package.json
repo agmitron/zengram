@@ -1,0 +1,17 @@
+{
+  "name": "@zengram/server",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "The Zengram's proxy server for such utilities as sharing configs, not related to the original Telegram",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "ts-node --esm ./index.ts"
+  },
+  "author": "agmitron",
+  "license": "ISC",
+  "devDependencies": {
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  }
+}
