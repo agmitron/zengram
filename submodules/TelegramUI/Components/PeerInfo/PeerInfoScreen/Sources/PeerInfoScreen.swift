@@ -5129,78 +5129,89 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
         }
         
         if peerId.namespace == Namespaces.Peer.CloudChannel || peerId.namespace == Namespaces.Peer.CloudUser {
-            self.storiesReady.set(false)
-            let expiringStoryList = PeerExpiringStoryListContext(account: context.account, peerId: peerId)
-            self.expiringStoryList = expiringStoryList
-            self.storyUploadProgressDisposable = (
-                combineLatest(
-                    queue: Queue.mainQueue(),
-                    context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: peerId))
-                    |> distinctUntilChanged,
-                    context.engine.messages.allStoriesUploadProgress()
-                    |> map { value -> Float? in
-                        return value[peerId]
-                    }
-                    |> distinctUntilChanged
-            )).startStrict(next: { [weak self] peer, value in
-                guard let self else {
-                    return
-                }
-                var mappedValue = value
-                if let value {
-                    mappedValue = max(0.027, value)
-                }
-                
-                if self.headerNode.avatarListNode.avatarContainerNode.storyProgress != mappedValue {
-                    self.headerNode.avatarListNode.avatarContainerNode.storyProgress = mappedValue
-                    self.headerNode.avatarListNode.avatarContainerNode.updateStoryView(transition: .immediate, theme: self.presentationData.theme, peer: peer?._asPeer())
-                }
-            })
-            self.expiringStoryListDisposable = (combineLatest(queue: .mainQueue(),
-                context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: peerId)),
-                expiringStoryList.state
-            )
-            |> deliverOnMainQueue).startStrict(next: { [weak self] peer, state in
-                guard let self, let peer else {
-                    return
-                }
-                self.expiringStoryListState = state
-                if state.items.isEmpty {
-                    self.headerNode.avatarListNode.avatarContainerNode.storyData = nil
-                    self.headerNode.avatarListNode.listContainerNode.storyParams = nil
-                } else {
-                    let totalCount = state.items.count
-                    var unseenCount = 0
-                    for item in state.items {
-                        if item.id > state.maxReadId {
-                            unseenCount += 1
+            if StoriesVisibility.isEnabled {
+                self.storiesReady.set(false)
+                let expiringStoryList = PeerExpiringStoryListContext(account: context.account, peerId: peerId)
+                self.expiringStoryList = expiringStoryList
+                self.storyUploadProgressDisposable = (
+                    combineLatest(
+                        queue: Queue.mainQueue(),
+                        context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: peerId))
+                        |> distinctUntilChanged,
+                        context.engine.messages.allStoriesUploadProgress()
+                        |> map { value -> Float? in
+                            return value[peerId]
                         }
+                        |> distinctUntilChanged
+                )).startStrict(next: { [weak self] peer, value in
+                    guard let self else {
+                        return
+                    }
+                    var mappedValue = value
+                    if let value {
+                        mappedValue = max(0.027, value)
                     }
                     
-                    self.headerNode.avatarListNode.avatarContainerNode.storyData = (totalCount, unseenCount, state.hasUnseenCloseFriends && peer.id != self.context.account.peerId)
-                    self.headerNode.avatarListNode.listContainerNode.storyParams = (peer, state.items.prefix(3).compactMap { item -> EngineStoryItem? in
-                        switch item {
-                        case let .item(item):
-                            return item
-                        case .placeholder:
-                            return nil
-                        }
-                    }, state.items.count, state.hasUnseen, state.hasUnseenCloseFriends)
-                }
-                
-                self.storiesReady.set(true)
-                
-                self.requestLayout(animated: false)
-                
-                if self.headerNode.avatarListNode.openStories == nil {
-                    self.headerNode.avatarListNode.openStories = { [weak self] in
-                        guard let self else {
-                            return
-                        }
-                        self.openStories(fromAvatar: false)
+                    if self.headerNode.avatarListNode.avatarContainerNode.storyProgress != mappedValue {
+                        self.headerNode.avatarListNode.avatarContainerNode.storyProgress = mappedValue
+                        self.headerNode.avatarListNode.avatarContainerNode.updateStoryView(transition: .immediate, theme: self.presentationData.theme, peer: peer?._asPeer())
                     }
-                }
-            })
+                })
+                self.expiringStoryListDisposable = (combineLatest(queue: .mainQueue(),
+                    context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: peerId)),
+                    expiringStoryList.state
+                )
+                |> deliverOnMainQueue).startStrict(next: { [weak self] peer, state in
+                    guard let self, let peer else {
+                        return
+                    }
+                    self.expiringStoryListState = state
+                    if state.items.isEmpty {
+                        self.headerNode.avatarListNode.avatarContainerNode.storyData = nil
+                        self.headerNode.avatarListNode.listContainerNode.storyParams = nil
+                    } else {
+                        let totalCount = state.items.count
+                        var unseenCount = 0
+                        for item in state.items {
+                            if item.id > state.maxReadId {
+                                unseenCount += 1
+                            }
+                        }
+                        
+                        self.headerNode.avatarListNode.avatarContainerNode.storyData = (totalCount, unseenCount, state.hasUnseenCloseFriends && peer.id != self.context.account.peerId)
+                        self.headerNode.avatarListNode.listContainerNode.storyParams = (peer, state.items.prefix(3).compactMap { item -> EngineStoryItem? in
+                            switch item {
+                            case let .item(item):
+                                return item
+                            case .placeholder:
+                                return nil
+                            }
+                        }, state.items.count, state.hasUnseen, state.hasUnseenCloseFriends)
+                    }
+                    
+                    self.storiesReady.set(true)
+                    
+                    self.requestLayout(animated: false)
+                    
+                    if self.headerNode.avatarListNode.openStories == nil {
+                        self.headerNode.avatarListNode.openStories = { [weak self] in
+                            guard let self else {
+                                return
+                            }
+                            self.openStories(fromAvatar: false)
+                        }
+                    }
+                })
+            } else {
+                self.expiringStoryListDisposable?.dispose()
+                self.storyUploadProgressDisposable?.dispose()
+                self.expiringStoryList = nil
+                self.expiringStoryListState = nil
+                self.headerNode.avatarListNode.avatarContainerNode.storyData = nil
+                self.headerNode.avatarListNode.listContainerNode.storyParams = nil
+                self.headerNode.avatarListNode.openStories = nil
+                self.storiesReady.set(true)
+            }
         }
     }
     
@@ -5434,6 +5445,9 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
     }
     
     private func openStories(fromAvatar: Bool) {
+        guard StoriesVisibility.isEnabled else {
+            return
+        }
         guard let controller = self.controller else {
             return
         }

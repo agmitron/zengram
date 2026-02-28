@@ -350,6 +350,9 @@ private func premiumSearchableItems(context: AccountContext) -> [SettingsSearcha
 }
 
 private func storiesSearchableItems(context: AccountContext) -> [SettingsSearchableItem] {
+    if !StoriesVisibility.isEnabled {
+        return []
+    }
     let icon: SettingsSearchableItemIcon = .stories
     let strings = context.sharedContext.currentPresentationData.with { $0 }.strings
     

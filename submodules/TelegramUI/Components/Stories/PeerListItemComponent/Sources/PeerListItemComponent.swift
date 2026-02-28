@@ -681,7 +681,7 @@ public final class PeerListItemComponent: Component {
             self.containerButton.alpha = component.isEnabled ? 1.0 : 0.3
             self.containerButton.isEnabled = component.action != nil
             
-            self.avatarButtonView.isUserInteractionEnabled = component.storyStats != nil && component.openStories != nil
+            self.avatarButtonView.isUserInteractionEnabled = StoriesVisibility.isEnabled && component.storyStats != nil && component.openStories != nil
             
             let labelData: (String, Subtitle.Color)
             if let presence = component.presence {
@@ -936,7 +936,8 @@ public final class PeerListItemComponent: Component {
                     } else {
                         avatarNode.setPeer(context: component.context, theme: component.theme, peer: peer, clipStyle: clipStyle, synchronousLoad: synchronousLoad, displayDimensions: CGSize(width: avatarSize, height: avatarSize))
                     }
-                    avatarNode.setStoryStats(storyStats: component.storyStats.flatMap { storyStats -> AvatarNode.StoryStats in
+                    let effectiveStoryStats = StoriesVisibility.isEnabled ? component.storyStats : nil
+                    avatarNode.setStoryStats(storyStats: effectiveStoryStats.flatMap { storyStats -> AvatarNode.StoryStats in
                         return AvatarNode.StoryStats(
                             totalCount: storyStats.totalCount == 0 ? 0 : 1,
                             unseenCount: storyStats.unseenCount == 0 ? 0 : 1,

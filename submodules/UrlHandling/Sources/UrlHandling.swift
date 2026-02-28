@@ -940,6 +940,9 @@ private func resolveInternalUrl(context: AccountContext, url: ParsedInternalUrl)
                             case let .voiceChat(invite):
                                 return .single(.result(.joinVoiceChat(peer.id, invite)))
                             case let .story(id):
+                                if !StoriesVisibility.isEnabled {
+                                    return .single(.result(.peer(peer._asPeer(), .chat(textInputState: nil, subject: nil, peekData: nil))))
+                                }
                                 return .single(.progress) |> then(context.engine.messages.refreshStories(peerId: peer.id, ids: [id])
                                 |> map { _ -> ResolveInternalUrlResult in
                                 }

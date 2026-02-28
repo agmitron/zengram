@@ -2535,18 +2535,30 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     }
     
     public func makeHashtagSearchController(context: AccountContext, peer: EnginePeer?, query: String, stories: Bool, forceDark: Bool) -> ViewController {
+        if stories && !StoriesVisibility.isEnabled {
+            return ViewController(navigationBarPresentationData: nil)
+        }
         return HashtagSearchController(context: context, peer: peer, query: query, mode: stories ? .chatOnly : .generic, stories: stories, forceDark: forceDark)
     }
     
     public func makeStorySearchController(context: AccountContext, scope: StorySearchControllerScope, listContext: SearchStoryListContext?) -> ViewController {
+        if !StoriesVisibility.isEnabled {
+            return ViewController(navigationBarPresentationData: nil)
+        }
         return StorySearchGridScreen(context: context, scope: scope, listContext: listContext)
     }
     
     public func makeMyStoriesController(context: AccountContext, isArchive: Bool) -> ViewController {
+        if !StoriesVisibility.isEnabled {
+            return ViewController(navigationBarPresentationData: nil)
+        }
         return PeerInfoStoryGridScreen(context: context, peerId: context.account.peerId, scope: isArchive ? .archive : .saved)
     }
     
     public func makeStorySelectionController(context: AccountContext, peerId: EnginePeer.Id, excludeIds: [Int32], completion: @escaping ([EngineStoryItem]) -> Void) -> ViewController {
+        if !StoriesVisibility.isEnabled {
+            return ViewController(navigationBarPresentationData: nil)
+        }
         return PeerInfoStoryGridScreen(context: context, peerId: peerId, scope: .saved, excludeIds: excludeIds, selectionModeCompletion: completion)
     }
     

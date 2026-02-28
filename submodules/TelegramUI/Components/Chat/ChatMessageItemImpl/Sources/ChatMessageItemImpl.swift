@@ -423,13 +423,15 @@ public final class ChatMessageItemImpl: ChatMessageItem, CustomStringConvertible
             if hasAvatar {
                 if let effectiveAuthor = effectiveAuthor {
                     var storyStats: PeerStoryStats?
-                    if case .peer(id: context.account.peerId) = chatLocation {
-                    } else {
-                        switch content {
-                        case let .message(_, _, _, attributes, _):
-                            storyStats = attributes.authorStoryStats
-                        case let .group(messages):
-                            storyStats = messages.first?.3.authorStoryStats
+                    if StoriesVisibility.isEnabled {
+                        if case .peer(id: context.account.peerId) = chatLocation {
+                        } else {
+                            switch content {
+                            case let .message(_, _, _, attributes, _):
+                                storyStats = attributes.authorStoryStats
+                            case let .group(messages):
+                                storyStats = messages.first?.3.authorStoryStats
+                            }
                         }
                     }
                     

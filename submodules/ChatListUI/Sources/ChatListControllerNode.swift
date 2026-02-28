@@ -2053,6 +2053,9 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
 }
 
 func shouldDisplayStoriesInChatListHeader(storySubscriptions: EngineStorySubscriptions, isHidden: Bool) -> Bool {
+    if !StoriesVisibility.isEnabled {
+        return false
+    }
     if !storySubscriptions.items.isEmpty {
         return true
     }

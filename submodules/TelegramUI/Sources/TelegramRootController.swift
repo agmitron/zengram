@@ -127,14 +127,16 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
                 context.sharedContext.mainWindow?.setForceBadgeHidden(!value)
             })
             
-            self.storyUploadEventsDisposable = (context.engine.messages.allStoriesUploadEvents()
-            |> deliverOnMainQueue).startStrict(next: { [weak self] event in
-                guard let self else {
-                    return
-                }
-                let (stableId, id) = event
-                moveStorySource(engine: self.context.engine, peerId: self.context.account.peerId, from: Int64(stableId), to: Int64(id))
-            })
+            if StoriesVisibility.isEnabled {
+                self.storyUploadEventsDisposable = (context.engine.messages.allStoriesUploadEvents()
+                |> deliverOnMainQueue).startStrict(next: { [weak self] event in
+                    guard let self else {
+                        return
+                    }
+                    let (stableId, id) = event
+                    moveStorySource(engine: self.context.engine, peerId: self.context.account.peerId, from: Int64(stableId), to: Int64(id))
+                })
+            }
         }
     }
     
@@ -302,6 +304,9 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
     
     @discardableResult
     public func openStoryCamera(customTarget: Stories.PendingTarget?, transitionIn: StoryCameraTransitionIn?, transitionedIn: @escaping () -> Void, transitionOut: @escaping (Stories.PendingTarget?, Bool) -> StoryCameraTransitionOut?) -> StoryCameraTransitionInCoordinator? {
+        guard StoriesVisibility.isEnabled else {
+            return nil
+        }
         guard let controller = self.viewControllers.last as? ViewController else {
             return nil
         }

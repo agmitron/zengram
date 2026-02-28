@@ -850,6 +850,9 @@ final class AuthorizedApplicationContext {
     
     func openChatWithPeerId(peerId: PeerId, threadId: Int64?, messageId: MessageId? = nil, activateInput: Bool = false, storyId: StoryId?, openAppIfAny: Bool = false, alwaysKeepMessageId: Bool = false) {
         if let storyId {
+            guard StoriesVisibility.isEnabled else {
+                return
+            }
             var controllers = self.rootController.viewControllers
             controllers = controllers.filter { c in
                 if c is StoryContainerScreen {

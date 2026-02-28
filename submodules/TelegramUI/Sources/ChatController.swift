@@ -8526,6 +8526,9 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
     }
     
     func openStories(peerId: EnginePeer.Id, avatarHeaderNode: ChatMessageAvatarHeaderNodeImpl?, avatarNode: AvatarNode?) {
+        guard StoriesVisibility.isEnabled else {
+            return
+        }
         if let avatarNode = avatarHeaderNode?.avatarNode ?? avatarNode {
             StoryContainerScreen.openPeerStories(context: self.context, peerId: peerId, parentController: self, avatarNode: avatarNode)
         }

@@ -2124,67 +2124,69 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             }
             |> distinctUntilChanged
             
-            let preferHighQualityStories: Signal<Bool, NoError> = combineLatest(
-                context.sharedContext.automaticMediaDownloadSettings
-                |> map { settings in
-                    return settings.highQualityStories
-                }
-                |> distinctUntilChanged,
-                context.engine.data.subscribe(
-                    TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId)
+            if StoriesVisibility.isEnabled {
+                let preferHighQualityStories: Signal<Bool, NoError> = combineLatest(
+                    context.sharedContext.automaticMediaDownloadSettings
+                    |> map { settings in
+                        return settings.highQualityStories
+                    }
+                    |> distinctUntilChanged,
+                    context.engine.data.subscribe(
+                        TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId)
+                    )
                 )
-            )
-            |> map { setting, peer -> Bool in
-                let isPremium = peer?.isPremium ?? false
-                return setting && isPremium
-            }
-            |> distinctUntilChanged
-            
-            self.preloadStorySubscriptionsDisposable = (combineLatest(queue: .mainQueue(),
-                self.context.engine.messages.preloadStorySubscriptions(isHidden: self.location == .chatList(groupId: .archive), preferHighQuality: preferHighQualityStories),
-                self.context.sharedContext.automaticMediaDownloadSettings,
-                automaticDownloadNetworkType
-            )
-            |> deliverOnMainQueue).startStrict(next: { [weak self] resources, automaticMediaDownloadSettings, automaticDownloadNetworkType in
-                guard let self else {
-                    return
+                |> map { setting, peer -> Bool in
+                    let isPremium = peer?.isPremium ?? false
+                    return setting && isPremium
                 }
+                |> distinctUntilChanged
                 
-                var autodownloadEnabled = true
-                if !shouldDownloadMediaAutomatically(settings: automaticMediaDownloadSettings, peerType: .contact, networkType: automaticDownloadNetworkType, authorPeerId: nil, contactsPeerIds: [], media: nil, isStory: true) {
-                    autodownloadEnabled = false
-                }
-                
-                var resources = resources
-                if !autodownloadEnabled {
-                    resources.removeAll()
-                }
-                
-                var validIds: [MediaId] = []
-                for (_, info) in resources.sorted(by: { $0.value.priority < $1.value.priority }) {
-                    if let mediaId = info.media.id {
-                        validIds.append(mediaId)
-                        if self.preloadStoryResourceDisposables[mediaId] == nil {
-                            self.preloadStoryResourceDisposables[mediaId] = preloadStoryMedia(context: self.context, info: info).startStrict()
+                self.preloadStorySubscriptionsDisposable = (combineLatest(queue: .mainQueue(),
+                    self.context.engine.messages.preloadStorySubscriptions(isHidden: self.location == .chatList(groupId: .archive), preferHighQuality: preferHighQualityStories),
+                    self.context.sharedContext.automaticMediaDownloadSettings,
+                    automaticDownloadNetworkType
+                )
+                |> deliverOnMainQueue).startStrict(next: { [weak self] resources, automaticMediaDownloadSettings, automaticDownloadNetworkType in
+                    guard let self else {
+                        return
+                    }
+                    
+                    var autodownloadEnabled = true
+                    if !shouldDownloadMediaAutomatically(settings: automaticMediaDownloadSettings, peerType: .contact, networkType: automaticDownloadNetworkType, authorPeerId: nil, contactsPeerIds: [], media: nil, isStory: true) {
+                        autodownloadEnabled = false
+                    }
+                    
+                    var resources = resources
+                    if !autodownloadEnabled {
+                        resources.removeAll()
+                    }
+                    
+                    var validIds: [MediaId] = []
+                    for (_, info) in resources.sorted(by: { $0.value.priority < $1.value.priority }) {
+                        if let mediaId = info.media.id {
+                            validIds.append(mediaId)
+                            if self.preloadStoryResourceDisposables[mediaId] == nil {
+                                self.preloadStoryResourceDisposables[mediaId] = preloadStoryMedia(context: self.context, info: info).startStrict()
+                            }
                         }
                     }
-                }
-                
-                var removeIds: [MediaId] = []
-                for (id, disposable) in self.preloadStoryResourceDisposables {
-                    if !validIds.contains(id) {
-                        removeIds.append(id)
-                        disposable.dispose()
+                    
+                    var removeIds: [MediaId] = []
+                    for (id, disposable) in self.preloadStoryResourceDisposables {
+                        if !validIds.contains(id) {
+                            removeIds.append(id)
+                            disposable.dispose()
+                        }
                     }
-                }
-                for id in removeIds {
-                    self.preloadStoryResourceDisposables.removeValue(forKey: id)
-                }
-            })
+                    for id in removeIds {
+                        self.preloadStoryResourceDisposables.removeValue(forKey: id)
+                    }
+                })
+            }
             
             if self.previewing {
                 self.storiesReady.set(.single(true))
-            } else {
+            } else if StoriesVisibility.isEnabled {
                 self.storySubscriptionsDisposable = (self.context.engine.messages.storySubscriptions(isHidden: self.location == .chatList(groupId: .archive))
                 |> deliverOnMainQueue).startStrict(next: { [weak self] rawStorySubscriptions in
                     guard let self else {
@@ -2294,6 +2296,21 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                         self.hasPendingStoriesPromise.set(rawStoryArchiveSubscriptions.accountItem?.hasPending ?? false)
                     })
                 }
+            } else {
+                self.preloadStorySubscriptionsDisposable?.dispose()
+                for (_, disposable) in self.preloadStoryResourceDisposables {
+                    disposable.dispose()
+                }
+                self.preloadStoryResourceDisposables.removeAll()
+                self.rawStorySubscriptions = nil
+                self.orderedStorySubscriptions = nil
+                self.rawStoryArchiveSubscriptions = nil
+                self.fixedStorySubscriptionOrder.removeAll()
+                self.shouldFixStorySubscriptionOrder = false
+                self.storySubscriptionsDisposable?.dispose()
+                self.storyArchiveSubscriptionsDisposable?.dispose()
+                self.storyProgressDisposable?.dispose()
+                self.storiesReady.set(.single(true))
             }
         }
     }
@@ -4208,6 +4225,9 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
     }
     
     public func openStoriesFromNotification(peerId: EnginePeer.Id, storyId: Int32) {
+        guard StoriesVisibility.isEnabled else {
+            return
+        }
         let presentationData = self.presentationData
         let progressSignal = Signal<Never, NoError> { [weak self] subscriber in
             let controller = OverlayStatusController(theme: presentationData.theme, type: .loading(cancelled: nil))
@@ -4267,10 +4287,16 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
     }
     
     public func openStories(peerId: EnginePeer.Id) {
+        guard StoriesVisibility.isEnabled else {
+            return
+        }
         self.openStories(peerId: peerId, completion: { _ in })
     }
     
     public func openStories(peerId: EnginePeer.Id, completion: @escaping (StoryContainerScreen) -> Void = { _ in }) {
+        guard StoriesVisibility.isEnabled else {
+            return
+        }
         if let navigationBarView = self.chatListDisplayNode.navigationBarView.view as? ChatListNavigationBar.View {
             if navigationBarView.storiesUnlocked {
                 self.shouldFixStorySubscriptionOrder = true
