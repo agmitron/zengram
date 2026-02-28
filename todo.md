@@ -2,3 +2,4 @@
 - [ ] rename to Zengram in all places
 - [ ] deploy and use
 - [ ] remove gifts
+- [ ] deploy
