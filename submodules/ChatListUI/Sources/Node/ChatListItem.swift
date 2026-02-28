@@ -706,27 +706,29 @@ private func revealOptions(strings: PresentationStrings, theme: PresentationThem
     if case .savedMessagesChats = location {
     } else {
         if !isEditing {
-            var canArchive = false
-            var canUnarchive = false
-            if let filterData = filterData {
-                if filterData.excludesArchived {
-                    canArchive = true
-                }
-            } else {
-                if case let .chatList(groupId) = location {
-                    if case .root = groupId {
+            if ArchiveVisibility.isEnabled {
+                var canArchive = false
+                var canUnarchive = false
+                if let filterData = filterData {
+                    if filterData.excludesArchived {
                         canArchive = true
-                    } else {
-                        canUnarchive = true
+                    }
+                } else {
+                    if case let .chatList(groupId) = location {
+                        if case .root = groupId {
+                            canArchive = true
+                        } else {
+                            canUnarchive = true
+                        }
                     }
                 }
-            }
-            if canArchive {
-                if canArchivePeer(id: peerId, accountPeerId: accountPeerId) {
-                    options.append(ItemListRevealOption(key: RevealOptionKey.archive.rawValue, title: strings.ChatList_ArchiveAction, icon: archiveIcon, color: theme.list.itemDisclosureActions.inactive.fillColor, textColor: theme.list.itemDisclosureActions.inactive.foregroundColor))
+                if canArchive {
+                    if canArchivePeer(id: peerId, accountPeerId: accountPeerId) {
+                        options.append(ItemListRevealOption(key: RevealOptionKey.archive.rawValue, title: strings.ChatList_ArchiveAction, icon: archiveIcon, color: theme.list.itemDisclosureActions.inactive.fillColor, textColor: theme.list.itemDisclosureActions.inactive.foregroundColor))
+                    }
+                } else if canUnarchive {
+                    options.append(ItemListRevealOption(key: RevealOptionKey.unarchive.rawValue, title: strings.ChatList_UnarchiveAction, icon: unarchiveIcon, color: theme.list.itemDisclosureActions.inactive.fillColor, textColor: theme.list.itemDisclosureActions.inactive.foregroundColor))
                 }
-            } else if canUnarchive {
-                options.append(ItemListRevealOption(key: RevealOptionKey.unarchive.rawValue, title: strings.ChatList_UnarchiveAction, icon: unarchiveIcon, color: theme.list.itemDisclosureActions.inactive.fillColor, textColor: theme.list.itemDisclosureActions.inactive.foregroundColor))
             }
         }
     }

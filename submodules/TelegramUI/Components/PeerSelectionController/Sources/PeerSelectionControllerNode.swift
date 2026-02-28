@@ -1280,6 +1280,9 @@ final class PeerSelectionControllerNode: ASDisplayNode {
                         guard let strongSelf = self else {
                             return
                         }
+                        if !ChannelsVisibility.isEnabled, isBroadcastChannelPeer(peer) {
+                            return
+                        }
                         var updated = false
                         var count = 0
                         

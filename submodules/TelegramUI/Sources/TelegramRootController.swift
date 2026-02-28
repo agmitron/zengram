@@ -625,7 +625,7 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
             
             var chatListController: ChatListControllerImpl?
             
-            if externalState.isPeerArchived {
+            if externalState.isPeerArchived, ArchiveVisibility.isEnabled {
                 var viewControllers = self.viewControllers
                 
                 let archiveController = ChatListControllerImpl(context: context, location: .chatList(groupId: .archive), controlsHistoryPreload: false, hideNetworkActivityStatus: false, previewing: false, enableDebugActions: false)

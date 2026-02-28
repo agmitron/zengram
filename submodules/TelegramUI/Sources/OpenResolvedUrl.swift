@@ -562,15 +562,32 @@ func openResolvedUrlImpl(
                     })
                 }
                 
-                if let textInputState = textInputState {
-                    let _ = (ChatInterfaceState.update(engine: context.engine, peerId: peerId, threadId: threadId, { currentState in
-                        return currentState.withUpdatedComposeInputState(textInputState)
-                    })
-                    |> deliverOnMainQueue).startStandalone(completed: {
+                let proceed = {
+                    if let textInputState = textInputState {
+                        let _ = (ChatInterfaceState.update(engine: context.engine, peerId: peerId, threadId: threadId, { currentState in
+                            return currentState.withUpdatedComposeInputState(textInputState)
+                        })
+                        |> deliverOnMainQueue).startStandalone(completed: {
+                            updateControllers()
+                        })
+                    } else {
                         updateControllers()
+                    }
+                }
+                if !ChannelsVisibility.isEnabled {
+                    let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: peerId))
+                    |> take(1)
+                    |> deliverOnMainQueue).start(next: { peer in
+                        guard let peer else {
+                            return
+                        }
+                        if isBroadcastChannelPeer(peer) {
+                            return
+                        }
+                        proceed()
                     })
                 } else {
-                    updateControllers()
+                    proceed()
                 }
             }
             

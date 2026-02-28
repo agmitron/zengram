@@ -363,7 +363,7 @@ func chatContextMenuItems(context: AccountContext, peerId: PeerId, promoInfo: Ch
                             }
                         }
                         
-                        let archiveEnabled = !isSavedMessages && peerId != PeerId(namespace: Namespaces.Peer.CloudUser, id: PeerId.Id._internalFromInt64Value(777000)) && peerId == context.account.peerId
+                        let archiveEnabled = ArchiveVisibility.isEnabled && !isSavedMessages && peerId != PeerId(namespace: Namespaces.Peer.CloudUser, id: PeerId.Id._internalFromInt64Value(777000)) && peerId == context.account.peerId
                         if let group = peerGroup {
                             if archiveEnabled {
                                 let isArchived = group == .archive

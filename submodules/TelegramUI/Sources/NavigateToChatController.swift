@@ -23,6 +23,9 @@ import ChatMessageNotificationItem
 import FaceScanScreen
 
 public func navigateToChatControllerImpl(_ params: NavigateToChatControllerParams) {
+    if !ChannelsVisibility.isEnabled, case let .peer(peer) = params.chatLocation, isBroadcastChannelPeer(peer) {
+        return
+    }
     if case let .peer(peer) = params.chatLocation {
         let _ = params.context.engine.peers.ensurePeerIsLocallyAvailable(peer: peer).startStandalone()
     }

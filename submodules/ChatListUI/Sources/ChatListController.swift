@@ -1202,6 +1202,9 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             guard let self else {
                 return
             }
+            if !ArchiveVisibility.isEnabled, case .archive = groupId {
+                return
+            }
             
             let _ = self.context.engine.privacy.updateGlobalPrivacySettings().startStandalone()
             let _ = (combineLatest(
@@ -1237,6 +1240,9 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
         
         self.chatListDisplayNode.mainContainerNode.updatePeerGrouping = { [weak self] peerId, group in
             guard let strongSelf = self else {
+                return
+            }
+            if !ArchiveVisibility.isEnabled {
                 return
             }
             if group {
@@ -5897,6 +5903,9 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
     }
     
     func archiveChats(peerIds: [PeerId]) {
+        guard ArchiveVisibility.isEnabled else {
+            return
+        }
         guard !peerIds.isEmpty else {
             return
         }
@@ -6850,6 +6859,9 @@ private final class ChatListLocationContext {
                     }
                     var archiveEnabled = options.delete
                     var displayArchive = true
+                    if !ArchiveVisibility.isEnabled {
+                        displayArchive = false
+                    }
                     if let filter = containerNode.currentItemNode.chatListFilter, case let .filter(_, _, _, data) = filter {
                         if !data.excludeArchived {
                             displayArchive = false
@@ -6877,7 +6889,12 @@ private final class ChatListLocationContext {
                     }
                     toolbar = Toolbar(leftAction: leftAction, rightAction: ToolbarAction(title: presentationData.strings.Common_Delete, isEnabled: options.delete), middleAction: nil)
                 } else {
-                    let middleAction = ToolbarAction(title: presentationData.strings.ChatList_UnarchiveAction, isEnabled: !peerIds.isEmpty)
+                    let middleAction: ToolbarAction?
+                    if ArchiveVisibility.isEnabled {
+                        middleAction = ToolbarAction(title: presentationData.strings.ChatList_UnarchiveAction, isEnabled: !peerIds.isEmpty)
+                    } else {
+                        middleAction = nil
+                    }
                     let leftAction: ToolbarAction
                     switch options.read {
                     case .all:

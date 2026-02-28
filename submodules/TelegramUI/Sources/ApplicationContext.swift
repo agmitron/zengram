@@ -892,6 +892,9 @@ final class AuthorizedApplicationContext {
                     guard let peer = peer else {
                         return
                     }
+                    if !ChannelsVisibility.isEnabled, isBroadcastChannelPeer(peer) {
+                        return
+                    }
                     
                     let chatLocation: NavigateToChatControllerParams.Location
                     if let threadId = threadId {

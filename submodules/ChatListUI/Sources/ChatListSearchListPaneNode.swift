@@ -1483,6 +1483,25 @@ private struct DownloadItem: Equatable {
 }
 
 private func filteredPeerSearchQueryResults(value: ([FoundPeer], [FoundPeer]), scope: TelegramSearchPeersScope) -> ([FoundPeer], [FoundPeer]) {
+    if !ChannelsVisibility.isEnabled {
+        if case .channels = scope {
+            return ([], [])
+        }
+        return (
+            value.0.filter { peer in
+                if let channel = peer.peer as? TelegramChannel, case .broadcast = channel.info {
+                    return false
+                }
+                return true
+            },
+            value.1.filter { peer in
+                if let channel = peer.peer as? TelegramChannel, case .broadcast = channel.info {
+                    return false
+                }
+                return true
+            }
+        )
+    }
     switch scope {
     case .everywhere, .privateChats, .groups, .globalPosts:
         return value
@@ -1504,6 +1523,13 @@ private func filteredPeerSearchQueryResults(value: ([FoundPeer], [FoundPeer]), s
             }
         )
     }
+}
+
+private func isBroadcastRenderedPeer(_ peer: EngineRenderedPeer) -> Bool {
+    if let mainPeer = peer.peer {
+        return isBroadcastChannelPeer(mainPeer)
+    }
+    return false
 }
 
 final class GlobalPeerSearchContext {
@@ -2150,6 +2176,9 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                             resource = (resourceValue.id.stringRepresentation, size, entries.isEmpty)
                         }
                                                 
+                        if !ChannelsVisibility.isEnabled, isBroadcastRenderedPeer(peer) {
+                            continue
+                        }
                         entries.append(.message(message, peer, nil, nil, presentationData, 1, nil, false, .downloading(item.priority), resource, .downloading, allPaused, nil, false, .everywhere))
                     }
                     for item in downloadItems.doneItems.sorted(by: { ChatListSearchEntry.MessageOrderingKey.downloaded(timestamp: $0.timestamp, index: $0.message.index) < ChatListSearchEntry.MessageOrderingKey.downloaded(timestamp: $1.timestamp, index: $1.message.index) }) {
@@ -2178,6 +2207,9 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                             }
                         }
                         
+                        if !ChannelsVisibility.isEnabled, isBroadcastRenderedPeer(peer) {
+                            continue
+                        }
                         entries.append(.message(message, peer, nil, nil, presentationData, 1, selectionState?.contains(message.id), false, .downloaded(timestamp: item.timestamp, index: message.index), (item.resourceId, item.size, false), .recentlyDownloaded, false, nil, false, .everywhere))
                     }
                     return (entries.sorted(), false, query)
@@ -2881,6 +2913,9 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                 let _ = currentRemotePeers.swap((foundRemotePeers.0, foundRemotePeers.1, foundRemotePeers.2))
                 
                 let filteredPeer: (EnginePeer, EnginePeer) -> Bool = { peer, accountPeer in
+                    if !ChannelsVisibility.isEnabled, isBroadcastChannelPeer(peer) {
+                        return false
+                    }
                     if let requestPeerType {
                         guard !peer.isDeleted && peer.id != context.account.peerId else {
                             return false
@@ -3223,8 +3258,10 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                         }
                     }
                     //TODO:requiresPremiumForMessaging
-                    entries.append(.message(message, peer, nil, nil, presentationData, 1, nil, true, .index(message.index), nil, .generic, false, nil, false, .everywhere))
-                    index += 1
+                    if ChannelsVisibility.isEnabled || !isBroadcastRenderedPeer(peer) {
+                        entries.append(.message(message, peer, nil, nil, presentationData, 1, nil, true, .index(message.index), nil, .generic, false, nil, false, .everywhere))
+                        index += 1
+                    }
                 }
                 
                 var firstHeaderId: Int64?
@@ -3243,6 +3280,9 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                                 firstHeaderId = headerId
                             }
                             let peer = EngineRenderedPeer(message: message)
+                            if !ChannelsVisibility.isEnabled, isBroadcastRenderedPeer(peer) {
+                                continue
+                            }
                             entries.append(.message(message, peer, foundPublicMessageSet.readCounters[message.id.peerId], foundPublicMessageSet.threadsData[message.id]?.info, presentationData, foundPublicMessageSet.totalCount, nil, headerId == firstHeaderId, .index(message.index), nil, .publicPosts, false, nil, false, .everywhere))
                             index += 1
                         }
@@ -3282,6 +3322,9 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                                 
                                 //TODO:requiresPremiumForMessaging
                                 hasAnyMessages = true
+                                if !ChannelsVisibility.isEnabled, isBroadcastRenderedPeer(peer) {
+                                    continue
+                                }
                                 entries.append(.message(message, peer, foundRemoteMessageSet.readCounters[message.id.peerId], foundRemoteMessageSet.threadsData[message.id]?.info, presentationData, foundRemoteMessageSet.totalCount, selectionState?.contains(message.id), headerId == firstHeaderId, .index(message.index), nil, .generic, false, nil, false, searchScope))
                                 index += 1
                             }
@@ -4005,6 +4048,9 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
             var index = 0
             loop: for searchedPeer in peers {
                 if let peer = searchedPeer.peer.peers[searchedPeer.peer.peerId] {
+                    if !ChannelsVisibility.isEnabled, isBroadcastChannelPeer(EnginePeer(peer)) {
+                        continue loop
+                    }
                     if peerIds.contains(peer.id) {
                         continue loop
                     }
@@ -4028,149 +4074,112 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
             recentItems = .single(RecentItems(entries: [], isChannelsTabExpanded: nil, recommendedChannelOrder: [], isEmpty: false))
         }
         if case .channels = key {
-            struct LocalChannels {
-                var peerIds: [EnginePeer.Id]
-                var isExpanded: Bool?
-            }
-            let localChannels = isChannelsTabExpandedValue.get()
-            |> mapToSignal { isChannelsTabExpanded -> Signal<LocalChannels, NoError> in
-                return context.engine.messages.getAllLocalChannels(count: isChannelsTabExpanded ? 500 : 5)
-                |> map { peerIds -> LocalChannels in
-                    return LocalChannels(peerIds: peerIds, isExpanded: isChannelsTabExpanded)
+            if !ChannelsVisibility.isEnabled {
+                recentItems = .single(RecentItems(entries: [], isChannelsTabExpanded: nil, recommendedChannelOrder: [], isEmpty: true))
+            } else {
+                struct LocalChannels {
+                    var peerIds: [EnginePeer.Id]
+                    var isExpanded: Bool?
                 }
-            }
-            
-            let remoteChannels: Signal<RecommendedChannels?, NoError> = context.engine.peers.recommendedChannels(peerId: nil)
-            
-            let _ = self.context.engine.peers.requestGlobalRecommendedChannelsIfNeeded().startStandalone()
-            
-            recentItems = combineLatest(
-                localChannels,
-                remoteChannels
-            )
-            |> mapToSignal { localChannels, remoteChannels -> Signal<RecentItems, NoError> in
-                var allChannelIds = localChannels.peerIds
-                let isChannelsTabExpanded = localChannels.isExpanded
-                
-                var cachedSubscribers: [EnginePeer.Id: Int32] = [:]
-                var recommendedChannelOrder: [EnginePeer.Id] = []
-                if let remoteChannels {
-                    for channel in remoteChannels.channels {
-                        if !allChannelIds.contains(channel.peer.id) {
-                            allChannelIds.append(channel.peer.id)
-                        }
-                        cachedSubscribers[channel.peer.id] = channel.subscribers
-                        recommendedChannelOrder.append(channel.peer.id)
+                let localChannels = isChannelsTabExpandedValue.get()
+                |> mapToSignal { isChannelsTabExpanded -> Signal<LocalChannels, NoError> in
+                    return context.engine.messages.getAllLocalChannels(count: isChannelsTabExpanded ? 500 : 5)
+                    |> map { peerIds -> LocalChannels in
+                        return LocalChannels(peerIds: peerIds, isExpanded: isChannelsTabExpanded)
                     }
                 }
                 
-                return context.engine.data.subscribe(
-                    EngineDataMap(
-                        allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Peer.Peer in
-                            return TelegramEngine.EngineData.Item.Peer.Peer(id: peerId)
-                        }
-                    ),
-                    EngineDataMap(
-                        allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Peer.NotificationSettings in
-                            return TelegramEngine.EngineData.Item.Peer.NotificationSettings(id: peerId)
-                        }
-                    ),
-                    EngineDataMap(
-                        allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Messages.PeerUnreadCount in
-                            return TelegramEngine.EngineData.Item.Messages.PeerUnreadCount(id: peerId)
-                        }
-                    ),
-                    EngineDataMap(
-                        allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Peer.StoryStats in
-                            return TelegramEngine.EngineData.Item.Peer.StoryStats(id: peerId)
-                        }
-                    ),
-                    EngineDataMap(
-                        allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Messages.PeerReadCounters in
-                            return TelegramEngine.EngineData.Item.Messages.PeerReadCounters(id: peerId)
-                        }
-                    ),
-                    EngineDataMap(
-                        allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Peer.ParticipantCount in
-                            return TelegramEngine.EngineData.Item.Peer.ParticipantCount(id: peerId)
-                        }
-                    ),
-                    TelegramEngine.EngineData.Item.NotificationSettings.Global()
+                let remoteChannels: Signal<RecommendedChannels?, NoError> = context.engine.peers.recommendedChannels(peerId: nil)
+                
+                let _ = self.context.engine.peers.requestGlobalRecommendedChannelsIfNeeded().startStandalone()
+                
+                recentItems = combineLatest(
+                    localChannels,
+                    remoteChannels
                 )
-                |> map { peers, notificationSettings, unreadCounts, storyStats, readCounters, participantCounts, globalNotificationSettings -> RecentItems in
-                    /*#if DEBUG
-                    var localChannels = localChannels
-                    localChannels.peerIds = []
+                |> mapToSignal { localChannels, remoteChannels -> Signal<RecentItems, NoError> in
+                    var allChannelIds = localChannels.peerIds
+                    let isChannelsTabExpanded = localChannels.isExpanded
                     
-                    var remoteChannels = remoteChannels
-                    remoteChannels?.channels = []
-                    #endif*/
-                    
-                    var result: [ChatListRecentEntry] = []
-                    var existingIds = Set<PeerId>()
-                    
-                    for id in localChannels.peerIds {
-                        if existingIds.contains(id) {
-                            continue
-                        }
-                        existingIds.insert(id)
-                        guard let peer = peers[id], let peer else {
-                            continue
-                        }
-                        let peerNotificationSettings = notificationSettings[id]
-                        var subpeerSummary: RecentlySearchedPeerSubpeerSummary?
-                        if let count = participantCounts[id], let count {
-                            subpeerSummary = RecentlySearchedPeerSubpeerSummary(count: Int(count))
-                        } else if let count = cachedSubscribers[id] {
-                            subpeerSummary = RecentlySearchedPeerSubpeerSummary(count: Int(count))
-                        }
-                        var peerStoryStats: PeerStoryStats?
-                        if let value = storyStats[peer.id] {
-                            peerStoryStats = value
-                        }
-                        var unreadCount: Int32 = 0
-                        if let value = readCounters[peer.id] {
-                            unreadCount = value.count
-                        }
-                        result.append(.peer(
-                            index: result.count,
-                            peer: RecentlySearchedPeer(
-                                peer: RenderedPeer(peer: peer._asPeer()),
-                                presence: nil,
-                                notificationSettings: peerNotificationSettings.flatMap({ $0._asNotificationSettings() }),
-                                unreadCount: unreadCount,
-                                subpeerSummary: subpeerSummary
-                            ),
-                            .local,
-                            presentationData.theme,
-                            presentationData.strings,
-                            presentationData.dateTimeFormat,
-                            presentationData.nameSortOrder,
-                            presentationData.nameDisplayOrder,
-                            globalNotificationSettings,
-                            peerStoryStats,
-                            false
-                        ))
-                    }
+                    var cachedSubscribers: [EnginePeer.Id: Int32] = [:]
+                    var recommendedChannelOrder: [EnginePeer.Id] = []
                     if let remoteChannels {
                         for channel in remoteChannels.channels {
-                            if existingIds.contains(channel.peer.id) {
+                            if !allChannelIds.contains(channel.peer.id) {
+                                allChannelIds.append(channel.peer.id)
+                            }
+                            cachedSubscribers[channel.peer.id] = channel.subscribers
+                            recommendedChannelOrder.append(channel.peer.id)
+                        }
+                    }
+                    
+                    return context.engine.data.subscribe(
+                        EngineDataMap(
+                            allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Peer.Peer in
+                                return TelegramEngine.EngineData.Item.Peer.Peer(id: peerId)
+                            }
+                        ),
+                        EngineDataMap(
+                            allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Peer.NotificationSettings in
+                                return TelegramEngine.EngineData.Item.Peer.NotificationSettings(id: peerId)
+                            }
+                        ),
+                        EngineDataMap(
+                            allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Messages.PeerUnreadCount in
+                                return TelegramEngine.EngineData.Item.Messages.PeerUnreadCount(id: peerId)
+                            }
+                        ),
+                        EngineDataMap(
+                            allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Peer.StoryStats in
+                                return TelegramEngine.EngineData.Item.Peer.StoryStats(id: peerId)
+                            }
+                        ),
+                        EngineDataMap(
+                            allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Messages.PeerReadCounters in
+                                return TelegramEngine.EngineData.Item.Messages.PeerReadCounters(id: peerId)
+                            }
+                        ),
+                        EngineDataMap(
+                            allChannelIds.map { peerId -> TelegramEngine.EngineData.Item.Peer.ParticipantCount in
+                                return TelegramEngine.EngineData.Item.Peer.ParticipantCount(id: peerId)
+                            }
+                        ),
+                        TelegramEngine.EngineData.Item.NotificationSettings.Global()
+                    )
+                    |> map { peers, notificationSettings, unreadCounts, storyStats, readCounters, participantCounts, globalNotificationSettings -> RecentItems in
+                        /*#if DEBUG
+                        var localChannels = localChannels
+                        localChannels.peerIds = []
+                        
+                        var remoteChannels = remoteChannels
+                        remoteChannels?.channels = []
+                        #endif*/
+                        
+                        var result: [ChatListRecentEntry] = []
+                        var existingIds = Set<PeerId>()
+                        
+                        for id in localChannels.peerIds {
+                            if existingIds.contains(id) {
                                 continue
                             }
-                            existingIds.insert(channel.peer.id)
-                            guard let peer = peers[channel.peer.id], let peer else {
+                            existingIds.insert(id)
+                            guard let peer = peers[id], let peer else {
                                 continue
                             }
-                            let peerNotificationSettings = notificationSettings[channel.peer.id]
+                            let peerNotificationSettings = notificationSettings[id]
                             var subpeerSummary: RecentlySearchedPeerSubpeerSummary?
-                            if let count = participantCounts[channel.peer.id], let count {
+                            if let count = participantCounts[id], let count {
                                 subpeerSummary = RecentlySearchedPeerSubpeerSummary(count: Int(count))
-                            } else if let count = cachedSubscribers[channel.peer.id] {
+                            } else if let count = cachedSubscribers[id] {
                                 subpeerSummary = RecentlySearchedPeerSubpeerSummary(count: Int(count))
                             }
                             var peerStoryStats: PeerStoryStats?
                             if let value = storyStats[peer.id] {
                                 peerStoryStats = value
+                            }
+                            var unreadCount: Int32 = 0
+                            if let value = readCounters[peer.id] {
+                                unreadCount = value.count
                             }
                             result.append(.peer(
                                 index: result.count,
@@ -4178,10 +4187,10 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                                     peer: RenderedPeer(peer: peer._asPeer()),
                                     presence: nil,
                                     notificationSettings: peerNotificationSettings.flatMap({ $0._asNotificationSettings() }),
-                                    unreadCount: 0,
+                                    unreadCount: unreadCount,
                                     subpeerSummary: subpeerSummary
                                 ),
-                                .recommendedChannels,
+                                .local,
                                 presentationData.theme,
                                 presentationData.strings,
                                 presentationData.dateTimeFormat,
@@ -4192,17 +4201,59 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                                 false
                             ))
                         }
+                        if let remoteChannels {
+                            for channel in remoteChannels.channels {
+                                if existingIds.contains(channel.peer.id) {
+                                    continue
+                                }
+                                existingIds.insert(channel.peer.id)
+                                guard let peer = peers[channel.peer.id], let peer else {
+                                    continue
+                                }
+                                let peerNotificationSettings = notificationSettings[channel.peer.id]
+                                var subpeerSummary: RecentlySearchedPeerSubpeerSummary?
+                                if let count = participantCounts[channel.peer.id], let count {
+                                    subpeerSummary = RecentlySearchedPeerSubpeerSummary(count: Int(count))
+                                } else if let count = cachedSubscribers[channel.peer.id] {
+                                    subpeerSummary = RecentlySearchedPeerSubpeerSummary(count: Int(count))
+                                }
+                                var peerStoryStats: PeerStoryStats?
+                                if let value = storyStats[peer.id] {
+                                    peerStoryStats = value
+                                }
+                                result.append(.peer(
+                                    index: result.count,
+                                    peer: RecentlySearchedPeer(
+                                        peer: RenderedPeer(peer: peer._asPeer()),
+                                        presence: nil,
+                                        notificationSettings: peerNotificationSettings.flatMap({ $0._asNotificationSettings() }),
+                                        unreadCount: 0,
+                                        subpeerSummary: subpeerSummary
+                                    ),
+                                    .recommendedChannels,
+                                    presentationData.theme,
+                                    presentationData.strings,
+                                    presentationData.dateTimeFormat,
+                                    presentationData.nameSortOrder,
+                                    presentationData.nameDisplayOrder,
+                                    globalNotificationSettings,
+                                    peerStoryStats,
+                                    false
+                                ))
+                            }
+                        }
+                        
+                        var isEmpty = false
+                        if localChannels.peerIds.isEmpty, let remoteChannels, remoteChannels.channels.isEmpty {
+                            isEmpty = true
+                        }
+                        
+                        return RecentItems(entries: result, isChannelsTabExpanded: isChannelsTabExpanded, recommendedChannelOrder: recommendedChannelOrder, isEmpty: isEmpty)
                     }
-                    
-                    var isEmpty = false
-                    if localChannels.peerIds.isEmpty, let remoteChannels, remoteChannels.channels.isEmpty {
-                        isEmpty = true
-                    }
-                    
-                    return RecentItems(entries: result, isChannelsTabExpanded: isChannelsTabExpanded, recommendedChannelOrder: recommendedChannelOrder, isEmpty: isEmpty)
                 }
             }
-        } else if case .apps = key {
+        }
+        if case .apps = key {
             struct LocalApps {
                 var peerIds: [EnginePeer.Id]
                 var isExpanded: Bool?

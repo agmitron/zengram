@@ -657,6 +657,9 @@ func chatListNodeEntriesForView(view: EngineChatList, state: ChatListNodeState, 
     var hiddenGeneralThread: ChatListNodeEntry?
     
     loop: for entry in view.items {
+        if !ChannelsVisibility.isEnabled, let mainPeer = entry.renderedPeer.peer, isBroadcastChannelPeer(mainPeer) {
+            continue
+        }
         var peerId: EnginePeer.Id?
         var threadId: Int64?
         var activityItemId: ChatListNodePeerInputActivities.ItemId?
@@ -893,6 +896,9 @@ func chatListNodeEntriesForView(view: EngineChatList, state: ChatListNodeState, 
         
         if !view.hasLater, case .chatList = mode {
             for groupReference in groupItems {
+                if !ArchiveVisibility.isEnabled, case .archive = groupReference.id {
+                    continue
+                }
                 let messageIndex = EngineMessage.Index(id: EngineMessage.Id(peerId: EnginePeer.Id(0), namespace: 0, id: 0), timestamp: 1)
                 var mappedStoryState: ChatListNodeState.StoryState?
                 if let archiveStoryState = state.archiveStoryState {
