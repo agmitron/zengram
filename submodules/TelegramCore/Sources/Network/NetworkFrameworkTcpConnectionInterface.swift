@@ -163,11 +163,8 @@ final class NetworkFrameworkTcpConnectionInterface: NSObject, MTTcpConnectionInt
                     connectTimeoutTimer.invalidate()
                 }
                 
-                weak var delegate = self.delegate
-                self.delegateQueue.async {
-                    if let delegate = delegate {
-                        delegate.connectionInterfaceDidConnect()
-                    }
+                self.delegateQueue.async { [weak delegate = self.delegate] in
+                    delegate?.connectionInterfaceDidConnect()
                 }
             case let .failed(error):
                 self.cancelWithError(error: error)
@@ -221,12 +218,9 @@ final class NetworkFrameworkTcpConnectionInterface: NSObject, MTTcpConnectionInt
             if requestChunkLength == 0 {
                 self.currentReadRequest = nil
                 
-                weak var delegate = self.delegate
                 let currentInterfaceIsWifi = self.currentInterfaceIsWifi
-                self.delegateQueue.async {
-                    if let delegate = delegate {
-                        delegate.connectionInterfaceDidRead(currentReadRequest.data, withTag: currentReadRequest.request.tag, networkType: currentInterfaceIsWifi ? 0 : 1)
-                    }
+                self.delegateQueue.async { [weak delegate = self.delegate] in
+                    delegate?.connectionInterfaceDidRead(currentReadRequest.data, withTag: currentReadRequest.request.tag, networkType: currentInterfaceIsWifi ? 0 : 1)
                 }
                 
                 self.processReadRequests()
@@ -249,11 +243,8 @@ final class NetworkFrameworkTcpConnectionInterface: NSObject, MTTcpConnectionInt
                             
                             let tag = currentReadRequest.request.tag
                             let readCount = data.count
-                            weak var delegate = self.delegate
-                            self.delegateQueue.async {
-                                if let delegate = delegate {
-                                    delegate.connectionInterfaceDidReadPartialData(ofLength: UInt(readCount), tag: tag)
-                                }
+                            self.delegateQueue.async { [weak delegate = self.delegate] in
+                                delegate?.connectionInterfaceDidReadPartialData(ofLength: UInt(readCount), tag: tag)
                             }
                             
                             self.processCurrentRead()
@@ -279,11 +270,8 @@ final class NetworkFrameworkTcpConnectionInterface: NSObject, MTTcpConnectionInt
             
             if !self.reportedDisconnection {
                 self.reportedDisconnection = true
-                weak var delegate = self.delegate
-                self.delegateQueue.async {
-                    if let delegate = delegate {
-                        delegate.connectionInterfaceDidDisconnectWithError(error)
-                    }
+                self.delegateQueue.async { [weak delegate = self.delegate] in
+                    delegate?.connectionInterfaceDidDisconnectWithError(error)
                 }
             }
             if let connection = self.connection {

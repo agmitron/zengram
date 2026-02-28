@@ -928,7 +928,7 @@ private class ChatThemeScreenNode: ViewControllerTracingNode, ASScrollViewDelega
                 ))
             }
             for theme in uniqueGiftChatThemes.themes {
-                guard case let .gift(gift, wallpaperFile) = theme else {
+                guard case let .gift(gift, themeSettings) = theme else {
                     continue
                 }
                 var emojiFile: TelegramMediaFile?
@@ -948,7 +948,7 @@ private class ChatThemeScreenNode: ViewControllerTracingNode, ASScrollViewDelega
                     selected: selectedTheme?.id == theme.id,
                     theme: presentationData.theme,
                     strings: presentationData.strings,
-                    wallpaper: .file(TelegramWallpaper.File(id: wallpaperFile.fileId.id, accessHash: 0, isCreator: false, isDefault: false, isPattern: true, isDark: false, slug: "", file: wallpaperFile, settings: WallpaperSettings(blur: false, motion: false, colors: [], intensity: 100, rotation: 0)))
+                    wallpaper: themeSettings.first?.wallpaper
                 ))
             }
             
