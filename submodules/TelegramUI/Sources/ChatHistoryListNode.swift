@@ -3983,7 +3983,20 @@ public final class ChatHistoryListNodeImpl: ListView, ChatHistoryNode, ChatHisto
                             loadState = .empty(emptyType)
                         }
                     } else {
-                        if historyView.originalView.isLoadingEarlier && strongSelf.chatLocation.peerId?.namespace != Namespaces.Peer.CloudUser {
+                        var hasMessageEntries = false
+                        for entry in historyView.filteredEntries {
+                            switch entry {
+                            case .MessageEntry, .MessageGroupEntry:
+                                hasMessageEntries = true
+                            default:
+                                break
+                            }
+                            if hasMessageEntries {
+                                break
+                            }
+                        }
+                        
+                        if historyView.originalView.isLoadingEarlier && !hasMessageEntries && strongSelf.chatLocation.peerId?.namespace != Namespaces.Peer.CloudUser {
                             loadState = .loading(true)
                         } else {
                             if historyView.filteredEntries.count == 1, let entry = historyView.filteredEntries.first, case .ChatInfoEntry = entry {

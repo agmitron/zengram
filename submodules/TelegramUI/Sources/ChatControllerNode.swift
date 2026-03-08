@@ -342,7 +342,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             useLoadingPlaceholder = true
         }
         
-        let updated = isLoading != self.isLoadingValue || (isLoading && earlier && !self.isLoadingEarlier)
+        let updated = isLoading != self.isLoadingValue || (isLoading && earlier != self.isLoadingEarlier)
         
         if updated {
             let updatedIsLoading = self.isLoadingValue != isLoading
