@@ -977,6 +977,7 @@ ios_extension(
         ":disableProvisioningProfilesSetting": None,
         "//conditions:default": "@build_configuration//provisioning:Share.mobileprovision",
     }),
+    entitlements_validation = "skip",
     deps = [":ShareExtensionLib"],
     frameworks = [
         ":TelegramUIFramework"
@@ -1084,6 +1085,7 @@ ios_extension(
         ":disableProvisioningProfilesSetting": None,
         "//conditions:default": "@build_configuration//provisioning:NotificationContent.mobileprovision",
     }),
+    entitlements_validation = "skip",
     deps = [":NotificationContentExtensionLib"],
     frameworks = [
         ":TelegramUIFramework"
@@ -1190,6 +1192,7 @@ ios_extension(
         ":disableProvisioningProfilesSetting": None,
         "//conditions:default": "@build_configuration//provisioning:Widget.mobileprovision",
     }),
+    entitlements_validation = "skip",
     deps = [
         ":WidgetExtensionLib",
     ],
@@ -1326,6 +1329,7 @@ ios_extension(
         ":disableProvisioningProfilesSetting": None,
         "//conditions:default": "@build_configuration//provisioning:Intents.mobileprovision",
     }),
+    entitlements_validation = "skip",
     deps = [":IntentsExtensionLib"],
     frameworks = [
         ":SwiftSignalKitFramework",
@@ -1421,6 +1425,7 @@ ios_extension(
         ":disableProvisioningProfilesSetting": None,
         "//conditions:default": "@build_configuration//provisioning:BroadcastUpload.mobileprovision",
     }),
+    entitlements_validation = "skip",
     deps = [":BroadcastUploadExtensionLib"],
     frameworks = [
         ":TelegramUIFramework",
@@ -1481,6 +1486,7 @@ ios_extension(
         ":disableProvisioningProfilesSetting": None,
         "//conditions:default": "@build_configuration//provisioning:NotificationService.mobileprovision",
     }),
+    entitlements_validation = "skip",
     deps = ["//Telegram/NotificationService:NotificationServiceExtensionLib"],
     frameworks = [
         ":MtProtoKitFramework",
@@ -1691,6 +1697,7 @@ ios_application(
         ":disableProvisioningProfilesSetting": None,
         "//conditions:default": ":Telegram_xcode_profile" if telegram_use_xcode_managed_codesigning else "@build_configuration//provisioning:Telegram.mobileprovision",
     }),
+    entitlements_validation = "skip",
     entitlements = ":TelegramEntitlements.entitlements",
     infoplists = [
         ":TelegramInfoPlist",

@@ -47,6 +47,7 @@ class BazelCommandLine:
         self.show_actions = False
         self.enable_sandbox = False
         self.disable_provisioning_profiles = False
+        self.disable_extensions = False
 
         self.common_args = [
             # https://docs.bazel.build/versions/master/command-line-reference.html
@@ -152,6 +153,9 @@ class BazelCommandLine:
 
     def set_disable_provisioning_profiles(self):
         self.disable_provisioning_profiles = True
+
+    def set_disable_extensions(self):
+        self.disable_extensions = True
 
     def set_configuration(self, configuration):
         if configuration == 'debug_arm64':
@@ -295,6 +299,9 @@ class BazelCommandLine:
 
         if self.disable_provisioning_profiles:
             combined_arguments += ['--//Telegram:disableProvisioningProfiles']
+
+        if self.disable_extensions:
+            combined_arguments += ['--//Telegram:disableExtensions']
 
         if self.configuration_path is None:
             raise Exception('configuration_path is not defined')
@@ -670,6 +677,11 @@ def build(bazel, arguments):
     bazel_command_line.set_enable_sandbox(arguments.sandbox)
 
     bazel_command_line.set_split_swiftmodules(arguments.enableParallelSwiftmoduleGeneration)
+
+    if getattr(arguments, 'disableProvisioningProfiles', False):
+        bazel_command_line.set_disable_provisioning_profiles()
+    if getattr(arguments, 'disableExtensions', False):
+        bazel_command_line.set_disable_extensions()
 
     bazel_command_line.invoke_build()
 
@@ -1060,6 +1072,18 @@ if __name__ == '__main__':
         action='store_true',
         default=False,
         help='Respect MODULE.bazel.lock.'
+    )
+    buildParser.add_argument(
+        '--disableProvisioningProfiles',
+        action='store_true',
+        default=False,
+        help='Build without provisioning profiles (useful for producing unsigned IPA artifacts).'
+    )
+    buildParser.add_argument(
+        '--disableExtensions',
+        action='store_true',
+        default=False,
+        help='Build app target without app extensions.'
     )
 
     remote_build_parser = subparsers.add_parser('remote-build', help='Build the app using a remote environment.')
